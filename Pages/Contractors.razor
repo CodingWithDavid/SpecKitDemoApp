@@ -1,0 +1,137 @@
+@page "/contractors"
+@using managerTracker.Models
+
+<h3>Contractors</h3>
+@inject managerTracker.Data.AppDbContext Db
+@using Microsoft.EntityFrameworkCore
+
+<button class="btn btn-primary mb-2" @onclick="ShowAddForm">Add Contractor</button>
+
+<table class="table">
+	<thead>
+		<tr>
+			<th>Name</th>
+			<th>Email</th>
+			<th>Start Date</th>
+			<th>End Date</th>
+			<th>Reminder</th>
+			<th>Actions</th>
+		</tr>
+	</thead>
+	<tbody>
+		@foreach (var contractor in contractors)
+		{
+			var daysLeft = (contractor.EndDate - DateTime.Today).TotalDays;
+			<tr>
+				<td>@contractor.Name</td>
+				<td>@contractor.Email</td>
+				<td>@contractor.StartDate.ToShortDateString()</td>
+				<td>@contractor.EndDate.ToShortDateString()</td>
+				<td>
+					@(daysLeft <= 30 && daysLeft > 0 ? $"{daysLeft} days left" : "")
+				</td>
+				<td>
+					<button class="btn btn-sm btn-warning" @onclick="() => EditContractor(contractor)">Edit</button>
+					<button class="btn btn-sm btn-danger" @onclick="() => DeleteContractor(contractor.Id)">Delete</button>
+				</td>
+			</tr>
+		}
+	</tbody>
+</table>
+
+@if (showForm)
+{
+	<EditForm Model="formModel" OnValidSubmit="HandleValidSubmit">
+		<DataAnnotationsValidator />
+		<ValidationSummary />
+		<div class="mb-2">
+			<label>Name</label>
+			<InputText class="form-control" @bind-Value="formModel.Name" />
+		</div>
+		<div class="mb-2">
+			<label>Email</label>
+			<InputText class="form-control" @bind-Value="formModel.Email" />
+		</div>
+		<div class="mb-2">
+			<label>Start Date</label>
+			<InputDate class="form-control" @bind-Value="formModel.StartDate" />
+		</div>
+		<div class="mb-2">
+			<label>End Date</label>
+			<InputDate class="form-control" @bind-Value="formModel.EndDate" />
+		</div>
+		<button class="btn btn-success" type="submit">Save</button>
+		<button class="btn btn-secondary ms-2" type="button" @onclick="HideForm">Cancel</button>
+	</EditForm>
+}
+
+@code {
+	private List<Contractor> contractors = new();
+	private Contractor formModel = new();
+	private bool showForm = false;
+	private int? editId = null;
+
+	protected override async Task OnInitializedAsync()
+	{
+		contractors = await Db.Contractors.ToListAsync();
+	}
+
+	private void ShowAddForm()
+	{
+		formModel = new Contractor { StartDate = DateTime.Today, EndDate = DateTime.Today.AddDays(30) };
+		editId = null;
+		showForm = true;
+	}
+
+	private void EditContractor(Contractor contractor)
+	{
+		formModel = new Contractor
+		{
+			Id = contractor.Id,
+			Name = contractor.Name,
+			Email = contractor.Email,
+			StartDate = contractor.StartDate,
+			EndDate = contractor.EndDate
+		};
+		editId = contractor.Id;
+		showForm = true;
+	}
+
+	private async Task HandleValidSubmit()
+	{
+		if (editId == null)
+		{
+			Db.Contractors.Add(formModel);
+		}
+		else
+		{
+			var existing = await Db.Contractors.FindAsync(editId);
+			if (existing != null)
+			{
+				existing.Name = formModel.Name;
+				existing.Email = formModel.Email;
+				existing.StartDate = formModel.StartDate;
+				existing.EndDate = formModel.EndDate;
+			}
+		}
+		await Db.SaveChangesAsync();
+		contractors = await Db.Contractors.ToListAsync();
+		showForm = false;
+	}
+
+	private async Task DeleteContractor(int id)
+	{
+		var contractor = await Db.Contractors.FindAsync(id);
+		if (contractor != null)
+		{
+			Db.Contractors.Remove(contractor);
+			await Db.SaveChangesAsync();
+			contractors = await Db.Contractors.ToListAsync();
+		}
+	}
+
+	private void HideForm()
+	{
+		showForm = false;
+	}
+}

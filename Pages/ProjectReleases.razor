@@ -1,0 +1,116 @@
+@page "/project-releases"
+@using managerTracker.Models
+
+<h3>Project Releases</h3>
+@inject managerTracker.Data.AppDbContext Db
+@using Microsoft.EntityFrameworkCore
+
+<button class="btn btn-primary mb-2" @onclick="ShowAddForm">Add Project Release</button>
+
+<table class="table">
+	<thead>
+		<tr>
+			<th>Name</th>
+			<th>Release Date</th>
+			<th>Actions</th>
+		</tr>
+	</thead>
+	<tbody>
+		@foreach (var release in releases)
+		{
+			<tr>
+				<td>@release.Name</td>
+				<td>@release.ReleaseDate.ToShortDateString()</td>
+				<td>
+					<button class="btn btn-sm btn-warning" @onclick="() => EditRelease(release)">Edit</button>
+					<button class="btn btn-sm btn-danger" @onclick="() => DeleteRelease(release.Id)">Delete</button>
+				</td>
+			</tr>
+		}
+	</tbody>
+</table>
+
+@if (showForm)
+{
+	<EditForm Model="formModel" OnValidSubmit="HandleValidSubmit">
+		<DataAnnotationsValidator />
+		<ValidationSummary />
+		<div class="mb-2">
+			<label>Name</label>
+			<InputText class="form-control" @bind-Value="formModel.Name" />
+		</div>
+		<div class="mb-2">
+			<label>Release Date</label>
+			<InputDate class="form-control" @bind-Value="formModel.ReleaseDate" />
+		</div>
+		<button class="btn btn-success" type="submit">Save</button>
+		<button class="btn btn-secondary ms-2" type="button" @onclick="HideForm">Cancel</button>
+	</EditForm>
+}
+
+@code {
+	private List<ProjectRelease> releases = new();
+	private ProjectRelease formModel = new();
+	private bool showForm = false;
+	private int? editId = null;
+
+	protected override async Task OnInitializedAsync()
+	{
+		releases = await Db.ProjectReleases.ToListAsync();
+	}
+
+	private void ShowAddForm()
+	{
+		formModel = new ProjectRelease { ReleaseDate = DateTime.Today };
+		editId = null;
+		showForm = true;
+	}
+
+	private void EditRelease(ProjectRelease release)
+	{
+		formModel = new ProjectRelease
+		{
+			Id = release.Id,
+			Name = release.Name,
+			ReleaseDate = release.ReleaseDate
+		};
+		editId = release.Id;
+		showForm = true;
+	}
+
+	private async Task HandleValidSubmit()
+	{
+		if (editId == null)
+		{
+			Db.ProjectReleases.Add(formModel);
+		}
+		else
+		{
+			var existing = await Db.ProjectReleases.FindAsync(editId);
+			if (existing != null)
+			{
+				existing.Name = formModel.Name;
+				existing.ReleaseDate = formModel.ReleaseDate;
+			}
+		}
+		await Db.SaveChangesAsync();
+		releases = await Db.ProjectReleases.ToListAsync();
+		showForm = false;
+	}
+
+	private async Task DeleteRelease(int id)
+	{
+		var release = await Db.ProjectReleases.FindAsync(id);
+		if (release != null)
+		{
+			Db.ProjectReleases.Remove(release);
+			await Db.SaveChangesAsync();
+			releases = await Db.ProjectReleases.ToListAsync();
+		}
+	}
+
+	private void HideForm()
+	{
+		showForm = false;
+	}
+}

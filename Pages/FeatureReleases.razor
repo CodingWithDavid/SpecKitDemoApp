@@ -1,0 +1,132 @@
+@page "/feature-releases"
+@using managerTracker.Models
+
+<h3>Features Released</h3>
+@inject managerTracker.Data.AppDbContext Db
+@using Microsoft.EntityFrameworkCore
+
+<button class="btn btn-primary mb-2" @onclick="ShowAddForm">Add Feature</button>
+
+<table class="table">
+	<thead>
+		<tr>
+			<th>Name</th>
+			<th>Description</th>
+			<th>Release Date</th>
+			<th>Project Release Id</th>
+			<th>Actions</th>
+		</tr>
+	</thead>
+	<tbody>
+		@foreach (var feature in features)
+		{
+			<tr>
+				<td>@feature.Name</td>
+				<td>@feature.Description</td>
+				<td>@feature.ReleaseDate.ToShortDateString()</td>
+				<td>@feature.ProjectReleaseId</td>
+				<td>
+					<button class="btn btn-sm btn-warning" @onclick="() => EditFeature(feature)">Edit</button>
+					<button class="btn btn-sm btn-danger" @onclick="() => DeleteFeature(feature.Id)">Delete</button>
+				</td>
+			</tr>
+		}
+	</tbody>
+</table>
+
+@if (showForm)
+{
+	<EditForm Model="formModel" OnValidSubmit="HandleValidSubmit">
+		<DataAnnotationsValidator />
+		<ValidationSummary />
+		<div class="mb-2">
+			<label>Name</label>
+			<InputText class="form-control" @bind-Value="formModel.Name" />
+		</div>
+		<div class="mb-2">
+			<label>Description</label>
+			<InputTextArea class="form-control" @bind-Value="formModel.Description" />
+		</div>
+		<div class="mb-2">
+			<label>Release Date</label>
+			<InputDate class="form-control" @bind-Value="formModel.ReleaseDate" />
+		</div>
+		<div class="mb-2">
+			<label>Project Release Id</label>
+			<InputNumber class="form-control" @bind-Value="formModel.ProjectReleaseId" />
+		</div>
+		<button class="btn btn-success" type="submit">Save</button>
+		<button class="btn btn-secondary ms-2" type="button" @onclick="HideForm">Cancel</button>
+	</EditForm>
+}
+
+@code {
+	private List<FeatureRelease> features = new();
+	private FeatureRelease formModel = new();
+	private bool showForm = false;
+	private int? editId = null;
+
+	protected override async Task OnInitializedAsync()
+	{
+		features = await Db.FeatureReleases.ToListAsync();
+	}
+
+	private void ShowAddForm()
+	{
+		formModel = new FeatureRelease { ReleaseDate = DateTime.Today };
+		editId = null;
+		showForm = true;
+	}
+
+	private void EditFeature(FeatureRelease feature)
+	{
+		formModel = new FeatureRelease
+		{
+			Id = feature.Id,
+			Name = feature.Name,
+			Description = feature.Description,
+			ReleaseDate = feature.ReleaseDate,
+			ProjectReleaseId = feature.ProjectReleaseId
+		};
+		editId = feature.Id;
+		showForm = true;
+	}
+
+	private async Task HandleValidSubmit()
+	{
+		if (editId == null)
+		{
+			Db.FeatureReleases.Add(formModel);
+		}
+		else
+		{
+			var existing = await Db.FeatureReleases.FindAsync(editId);
+			if (existing != null)
+			{
+				existing.Name = formModel.Name;
+				existing.Description = formModel.Description;
+				existing.ReleaseDate = formModel.ReleaseDate;
+				existing.ProjectReleaseId = formModel.ProjectReleaseId;
+			}
+		}
+		await Db.SaveChangesAsync();
+		features = await Db.FeatureReleases.ToListAsync();
+		showForm = false;
+	}
+
+	private async Task DeleteFeature(int id)
+	{
+		var feature = await Db.FeatureReleases.FindAsync(id);
+		if (feature != null)
+		{
+			Db.FeatureReleases.Remove(feature);
+			await Db.SaveChangesAsync();
+			features = await Db.FeatureReleases.ToListAsync();
+		}
+	}
+
+	private void HideForm()
+	{
+		showForm = false;
+	}
+}

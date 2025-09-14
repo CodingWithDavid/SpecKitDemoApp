@@ -1,0 +1,125 @@
+@page "/email-templates"
+@using managerTracker.Models
+
+@using Microsoft.EntityFrameworkCore
+
+<h3>Email Templates</h3>
+@inject managerTracker.Data.AppDbContext Db
+
+<button class="btn btn-primary mb-2" @onclick="ShowAddForm">Add Email Template</button>
+
+<table class="table">
+	<thead>
+		<tr>
+			<th>Name</th>
+			<th>Subject</th>
+			<th>Body</th>
+			<th>Actions</th>
+		</tr>
+	</thead>
+	<tbody>
+		@foreach (var template in emailTemplates)
+		{
+			<tr>
+				<td>@template.Name</td>
+				<td>@template.Subject</td>
+				<td>@template.Body</td>
+				<td>
+					<button class="btn btn-sm btn-warning" @onclick="() => EditTemplate(template)">Edit</button>
+					<button class="btn btn-sm btn-danger" @onclick="() => DeleteTemplate(template.Id)">Delete</button>
+				</td>
+			</tr>
+		}
+	</tbody>
+</table>
+
+@if (showForm)
+{
+	<EditForm Model="formModel" OnValidSubmit="HandleValidSubmit">
+		<DataAnnotationsValidator />
+		<ValidationSummary />
+		<div class="mb-2">
+			<label>Name</label>
+			<InputText class="form-control" @bind-Value="formModel.Name" />
+		</div>
+		<div class="mb-2">
+			<label>Subject</label>
+			<InputText class="form-control" @bind-Value="formModel.Subject" />
+		</div>
+		<div class="mb-2">
+			<label>Body</label>
+			<InputTextArea class="form-control" @bind-Value="formModel.Body" />
+		</div>
+		<button class="btn btn-success" type="submit">Save</button>
+		<button class="btn btn-secondary ms-2" type="button" @onclick="HideForm">Cancel</button>
+	</EditForm>
+}
+
+@code {
+	private List<EmailTemplate> emailTemplates = new();
+	private EmailTemplate formModel = new();
+	private bool showForm = false;
+	private int? editId = null;
+
+	protected override async Task OnInitializedAsync()
+	{
+		emailTemplates = await Db.EmailTemplates.ToListAsync();
+	}
+
+	private void ShowAddForm()
+	{
+		formModel = new EmailTemplate();
+		editId = null;
+		showForm = true;
+	}
+
+	private void EditTemplate(EmailTemplate template)
+	{
+		formModel = new EmailTemplate
+		{
+			Id = template.Id,
+			Name = template.Name,
+			Subject = template.Subject,
+			Body = template.Body
+		};
+		editId = template.Id;
+		showForm = true;
+	}
+
+	private async Task HandleValidSubmit()
+	{
+		if (editId == null)
+		{
+			Db.EmailTemplates.Add(formModel);
+		}
+		else
+		{
+			var existing = await Db.EmailTemplates.FindAsync(editId);
+			if (existing != null)
+			{
+				existing.Name = formModel.Name;
+				existing.Subject = formModel.Subject;
+				existing.Body = formModel.Body;
+			}
+		}
+		await Db.SaveChangesAsync();
+		emailTemplates = await Db.EmailTemplates.ToListAsync();
+		showForm = false;
+	}
+
+	private async Task DeleteTemplate(int id)
+	{
+		var template = await Db.EmailTemplates.FindAsync(id);
+		if (template != null)
+		{
+			Db.EmailTemplates.Remove(template);
+			await Db.SaveChangesAsync();
+			emailTemplates = await Db.EmailTemplates.ToListAsync();
+		}
+	}
+
+	private void HideForm()
+	{
+		showForm = false;
+	}
+}
